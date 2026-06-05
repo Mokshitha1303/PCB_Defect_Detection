@@ -1,0 +1,14 @@
+names:
+- SH
+- SP
+- SC
+- OP
+- MB
+- HB
+- CS
+- CFO
+- BMFO
+nc: 9
+path: C:\Users\moksh\OneDrive\Documents\Projects\YOLO\pcb-defect-yolo26\data\raw\Data_YOLO
+train: images/train
+val: images/val

@@ -1,0 +1,29 @@
+# Training hyperparameters — override any via CLI or env
+model: yolo26n.pt
+imgsz: 640
+epochs: 100
+batch: 16
+patience: 15        # early stopping
+seed: 42
+workers: 4
+optimizer: auto
+lr0: 0.01
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.1
+box: 7.5
+cls: 0.5
+dfl: 1.5
+project: runs/train
+name: yolo26n_pcb
+exist_ok: false
+pretrained: true
+amp: true           # mixed precision; falls back to FP32 on CPU
+verbose: true
+save: true
+save_period: -1     # -1 = only save best and last
+val: true
+plots: true

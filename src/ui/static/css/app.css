@@ -1,0 +1,186 @@
+/* PCB Defect Inspector — main stylesheet */
+
+:root {
+  --pass:   #22c55e;
+  --review: #f59e0b;
+  --reject: #ef4444;
+  --bg:     #0f172a;
+  --surface:#1e293b;
+  --card:   #263248;
+  --border: #334155;
+  --text:   #e2e8f0;
+  --muted:  #94a3b8;
+  --accent: #3b82f6;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+header h1 { font-size: 1.25rem; font-weight: 700; }
+header .badge {
+  font-size: 0.7rem;
+  background: var(--accent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+header .model-status {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Upload area */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.upload-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(59,130,246,0.05);
+}
+.upload-zone .icon { font-size: 3rem; margin-bottom: 0.75rem; }
+.upload-zone p { color: var(--muted); margin-top: 0.5rem; font-size: 0.9rem; }
+.upload-zone input[type="file"] { display: none; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { opacity: 0.85; }
+
+/* Threshold */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.controls label { font-size: 0.85rem; color: var(--muted); }
+#conf-slider { accent-color: var(--accent); }
+#conf-value { font-weight: 700; color: var(--accent); min-width: 3ch; }
+
+/* Results */
+#results { margin-top: 2rem; display: none; }
+
+.status-banner {
+  border-radius: var(--radius);
+  padding: 1rem 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.status-PASS   { background: rgba(34,197,94,0.15);  color: var(--pass);   border: 1px solid var(--pass); }
+.status-REVIEW { background: rgba(245,158,11,0.15); color: var(--review); border: 1px solid var(--review); }
+.status-REJECT { background: rgba(239,68,68,0.15);  color: var(--reject); border: 1px solid var(--reject); }
+
+.summary-text {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.images-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 700px) { .images-grid { grid-template-columns: 1fr; } }
+
+.img-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.img-card h3 { padding: 0.75rem 1rem; font-size: 0.85rem; color: var(--muted); border-bottom: 1px solid var(--border); }
+.img-card img { width: 100%; display: block; }
+
+/* Defect table */
+.defect-table-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+.defect-table-wrap h3 { padding: 0.75rem 1rem; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0.6rem 1rem; font-size: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; }
+td:last-child, th:last-child { text-align: right; }
+
+.meta-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+.meta-row span b { color: var(--text); }
+
+/* Spinner */
+.spinner {
+  display: none;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Policy note */
+.policy-note {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.policy-note b { color: var(--text); }

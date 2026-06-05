@@ -1,0 +1,26 @@
+# Core ML
+ultralytics>=8.4.0
+onnxruntime>=1.18.0
+numpy>=1.26.0
+
+# API
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+pydantic>=2.7.0
+
+# Image processing
+pillow>=10.3.0
+opencv-python-headless>=4.9.0.80
+
+# Data handling
+pandas>=2.2.0
+pyyaml>=6.0
+
+# Templates & files
+jinja2>=3.1.4
+aiofiles>=23.2.1
+
+# Testing
+pytest>=8.2.0
+httpx>=0.27.0

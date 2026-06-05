@@ -1,0 +1,29 @@
+# Application / inference config — all values overridable via env vars
+inference:
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  imgsz: 640
+  max_det: 300
+
+decision:
+  # Classes that trigger REJECT on any detection above conf_threshold
+  critical_classes:
+    - OP   # Open circuit
+    - SH   # Short circuit
+  # Minimum defect count to issue REVIEW (when no critical defects)
+  review_min_defects: 1
+
+annotator:
+  line_thickness: 2
+  font_scale: 0.5
+  alpha: 0.4          # box fill transparency
+  color_map:
+    SH:   [220,  50,  50]   # red
+    SP:   [255, 165,   0]   # orange
+    SC:   [255, 200,   0]   # yellow
+    OP:   [180,   0,   0]   # dark red
+    MB:   [ 50, 180,  50]   # green
+    HB:   [ 50, 200, 200]   # cyan
+    CS:   [150,  50, 255]   # purple
+    CFO:  [ 30, 100, 255]   # blue
+    BMFO: [200, 100,  50]   # brown

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PCB Defect Inspector — YOLO26</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>PCB Defect Inspector</h1>
+  </div>
+  <span class="badge">YOLO26</span>
+  <span class="model-status">
+    Model:
+    {% if model_loaded %}
+      <span style="color:#22c55e">&#x25CF; {{ model_backend }}</span>
+    {% else %}
+      <span style="color:#ef4444">&#x25CF; not loaded</span>
+    {% endif %}
+  </span>
+</header>
+
+<main>
+
+  <!-- Upload -->
+  <div id="drop-zone" class="upload-zone">
+    <div class="icon">&#128247;</div>
+    <p id="drop-zone-hint">Drag &amp; drop a PCB image here, or click to browse</p>
+    <img id="preview-img" alt="Preview" style="display:none;max-height:300px;border-radius:8px;margin-top:1rem;" />
+    <input type="file" id="file-input" accept="image/*" />
+  </div>
+
+  <div class="controls">
+    <label for="conf-slider">Confidence threshold:&nbsp;<span id="conf-value">0.25</span></label>
+    <input id="conf-slider" type="range" min="0.05" max="0.95" step="0.05" value="0.25" />
+    <button id="inspect-btn" class="btn btn-primary" disabled>
+      &#128269; Inspect
+    </button>
+    <div id="spinner" class="spinner"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <div id="status-banner" class="status-banner"></div>
+    <p id="summary-text" class="summary-text"></p>
+
+    <div class="meta-row">
+      <span>Latency: <span id="meta-latency"></span></span>
+      <span>Image size: <span id="meta-size"></span></span>
+      <span>Total defects: <span id="meta-total"></span></span>
+    </div>
+
+    <div class="images-grid">
+      <div class="img-card">
+        <h3>Original</h3>
+        <img id="original-img" src="" alt="Original" />
+      </div>
+      <div class="img-card">
+        <h3>Annotated</h3>
+        <img id="annotated-img" src="" alt="Annotated" />
+      </div>
+    </div>
+
+    <div class="defect-table-wrap">
+      <h3>Defect Breakdown</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Count</th>
+            <th>Max Conf</th>
+          </tr>
+        </thead>
+        <tbody id="defect-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="policy-note">
+      <b>Decision policy:</b>
+      <b style="color:var(--reject)">REJECT</b> — any Open (OP) or Short (SH) defect detected above threshold. &nbsp;
+      <b style="color:var(--review)">REVIEW</b> — other defects detected. &nbsp;
+      <b style="color:var(--pass)">PASS</b> — no defects above threshold.
+      Thresholds and critical classes are configurable via <code>configs/app.yaml</code> or environment variables.
+    </div>
+
+  </div><!-- /results -->
+
+</main>
+
+<script>
+  // Pass original preview to results panel
+  document.getElementById('inspect-btn').addEventListener('click', () => {
+    const src = document.getElementById('preview-img').src;
+    document.getElementById('original-img').src = src;
+  });
+</script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
