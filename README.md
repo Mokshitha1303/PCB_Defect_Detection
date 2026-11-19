@@ -1,24 +1,80 @@
-# Real-Time PCB Defect Inspection at the Edge using YOLO26
+# Real-Time PCB Defect Inspection with YOLO26
 
-> **Portfolio project** — end-to-end computer vision system for automated PCB quality inspection.
-> Trains a YOLO26 detection model on the DsPCBSD+ dataset to identify and localise 9 categories
-> of PCB surface defects, then serves the model through a FastAPI web application and REST API
-> for image upload, defect visualisation, and **PASS / REVIEW / REJECT** decisions.
-> Optimised for CPU-first inference with ONNX Runtime and prepared for deployment on
-> Oracle Cloud Always Free Arm instances.
+Checking printed circuit boards by eye is slow, tiring and easy to get wrong on a long shift. This project automates that step. Upload an image of a PCB and it finds surface defects, draws boxes around them and gives the board a **PASS**, **REVIEW** or **REJECT** decision.
+
+Under the hood it is a YOLO26-nano detector trained on the DsPCBSD+ dataset (9 defect types), served through a FastAPI web app and REST API. The model is also exported to ONNX so it runs well on CPU-only machines, and the repo includes a deployment guide for an Oracle Cloud Always Free Arm instance.
 
 ---
 
-## Why this matters
+## Results at a glance
 
-Manual optical inspection in electronics manufacturing is slow, inconsistent, and hard to scale.
-This system automates the detection of PCB surface defects from images, providing fast and
-repeatable quality decisions that match or exceed human-inspector consistency for the defect
-categories present in the training data.
+| Metric | Value |
+|--------|-------|
+| mAP@50 | **0.852** |
+| mAP@50-95 | **0.510** |
+| Precision | **0.835** |
+| Recall | **0.796** |
+| GPU inference (PyTorch, RTX 5060 Laptop) | **15.9 ms / image (~63 FPS)** |
+| CPU inference (ONNX Runtime) | **62.1 ms / image (~16 FPS)** |
+| Model size (ONNX) | **9.4 MB** |
+
+All numbers are on the 2,051-image validation set (4,092 labelled defects) at 640×640.
 
 ---
 
-## Architecture
+## Training results
+
+I trained `yolo26n` for up to 100 epochs at 640×640 with batch size 16 and early stopping (patience 15). Training ran on an NVIDIA RTX 5060 Laptop GPU at about 2.7 minutes per epoch. Early stopping ended the run at epoch 85, after roughly 2.2 hours, and the best checkpoint came from epoch 70.
+
+### Per-class performance
+
+| Class | Defect | Images | Instances | Precision | Recall | mAP@50 | mAP@50-95 |
+|-------|--------|-------:|----------:|----------:|-------:|-------:|----------:|
+| HB   | Hole Breakout                 | 271 | 608 | 0.910 | 0.951 | **0.983** | **0.829** |
+| SH   | Short                         | 126 | 169 | 0.837 | 0.840 | 0.902 | 0.588 |
+| BMFO | Base Material Foreign Object  | 305 | 346 | 0.859 | 0.881 | 0.895 | 0.462 |
+| OP   | Open                          | 274 | 338 | 0.818 | 0.853 | 0.882 | 0.526 |
+| SP   | Spur                          | 430 | 929 | 0.858 | 0.755 | 0.847 | 0.383 |
+| MB   | Mouse Bite                    | 391 | 546 | 0.880 | 0.753 | 0.839 | 0.402 |
+| SC   | Spurious Copper               | 245 | 285 | 0.822 | 0.782 | 0.826 | 0.504 |
+| CS   | Conductor Scratch             | 279 | 448 | 0.776 | 0.679 | 0.757 | 0.467 |
+| CFO  | Conductor Foreign Object      | 309 | 423 | 0.750 | 0.667 | 0.736 | 0.430 |
+| **All** |                            | **2,051** | **4,092** | **0.835** | **0.796** | **0.852** | **0.510** |
+
+Open (OP) and Short (SH) are the two defects that cause an automatic REJECT, and both score above 0.88 mAP@50.
+
+### Inference speed
+
+Each benchmark is 100 timed runs at 640×640:
+
+| Backend | Device | Mean | p50 | p95 |
+|---------|--------|-----:|----:|----:|
+| PyTorch      | RTX 5060 Laptop GPU | 15.9 ms | 15.6 ms | 19.5 ms |
+| ONNX Runtime | CPU                 | 62.1 ms | 62.2 ms | 66.8 ms |
+
+That works out to about 63 images per second on the GPU and about 16 per second on the CPU, which is fast enough for real-time inspection either way.
+
+### Training curves
+
+![Training curves](docs/images/results.png)
+
+### Precision-recall curve
+
+![Precision-recall curve](docs/images/BoxPR_curve.png)
+
+### Confusion matrix (normalized)
+
+![Confusion matrix](docs/images/confusion_matrix_normalized.png)
+
+### Sample predictions on the validation set
+
+![Validation predictions](docs/images/val_batch0_pred.jpg)
+
+The per-epoch numbers are in [`docs/training_results.csv`](docs/training_results.csv) and the raw benchmark output is in [`docs/benchmark.json`](docs/benchmark.json).
+
+---
+
+## How it works
 
 ```mermaid
 graph LR
@@ -40,9 +96,11 @@ graph LR
     end
 ```
 
+The API loads the ONNX model first and uses the PyTorch weights as a backup. Every request goes through detection, post-processing and the decision rules below. The response includes the annotated image along with the JSON results.
+
 ---
 
-## Dataset — DsPCBSD+
+## Dataset: DsPCBSD+
 
 | Property | Value |
 |----------|-------|
@@ -50,10 +108,11 @@ graph LR
 | Total bounding boxes | 20,276 |
 | Classes | 9 |
 | Train / Val split | 8,208 / 2,051 |
+| Image type | Close-up crops of PCB defect regions |
 | Annotation format | YOLO + COCO |
 | License | CC BY 4.0 |
 
-**Defect classes:**
+**Defect classes**
 
 | Code | Full name |
 |------|-----------|
@@ -67,23 +126,20 @@ graph LR
 | CFO  | Conductor Foreign Object |
 | BMFO | Base Material Foreign Object |
 
-**Important:** DsPCBSD+ contains **cropped local PCB defect images**, not full-board images.
-Detection accuracy on full-board images in the wild may differ and should be validated separately.
-
-**Dataset links:**
-- Official page: https://figshare.com/articles/dataset/DsPCBSD_/24970329
+**Links**
+- Dataset page: https://figshare.com/articles/dataset/DsPCBSD_/24970329
 - DOI: https://doi.org/10.6084/m9.figshare.24970329
-- Direct download: https://figshare.com/ndownloader/files/44069552
-- Dataset paper: https://www.nature.com/articles/s41597-024-03656-8
+- Direct download: https://ndownloader.figshare.com/files/44069552
+- Paper: https://www.nature.com/articles/s41597-024-03656-8
 
 ---
 
-## Model — YOLO26
+## Model: YOLO26
 
 - Framework: [Ultralytics YOLO26](https://docs.ultralytics.com/models/yolo26/)
-- Default variant: **yolo26n** (nano — fastest, smallest, edge-friendly)
-- License: AGPL-3.0 (Ultralytics open-source license)
-- Production format: **ONNX** (CPU inference via ONNX Runtime)
+- Variant: **yolo26n** (nano), chosen because it is small and fast enough for edge devices
+- Deployment format: **ONNX**, run with ONNX Runtime
+- License: AGPL-3.0
 
 ---
 
@@ -96,6 +152,7 @@ pcb-defect-yolo26/
 │   ├── raw/          dataset archive (not committed)
 │   ├── processed/    Ultralytics-ready split (not committed)
 │   └── samples/      demo images
+├── docs/             result plots, training log and benchmark output
 ├── src/
 │   ├── data/         download, verify, prepare scripts
 │   ├── training/     train, evaluate, export, benchmark
@@ -112,33 +169,42 @@ pcb-defect-yolo26/
 
 ---
 
-## Quick start
+## Getting started
 
-### 1. Install dependencies
+### 1. Install
 
 ```bash
-git clone <your-repo-url>
-cd pcb-defect-yolo26
+git clone https://github.com/Mokshitha1303/PCB_Defect_Detection.git
+cd PCB_Defect_Detection
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Download and prepare dataset
+If you have an NVIDIA GPU, install the CUDA build of PyTorch before you install the requirements:
 
 ```bash
-make download   # ~122 MB download from figshare
-make prepare    # builds Ultralytics YOLO layout + configs/dataset.yaml
-make verify     # optional: sanity-check image/label counts
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+```
+
+### 2. Get the dataset
+
+```bash
+make download   # about 122 MB from figshare
+make prepare    # builds the Ultralytics layout and configs/dataset.yaml
+make verify     # optional: checks image and label counts
 ```
 
 ### 3. Train
 
 ```bash
 make train
-# Defaults: yolo26n.pt, 640px, 100 epochs, patience=15, auto device
-# Weights saved to: runs/train/yolo26n_pcb/weights/best.pt
+# Defaults: yolo26n.pt, 640px, 100 epochs, patience 15, picks the GPU automatically
+# Best weights: runs/detect/runs/train/yolo26n_pcb/weights/best.pt
 ```
 
-Override defaults:
+Any setting can be changed from the command line:
+
 ```bash
 python src/training/train.py --epochs 50 --batch 8 --imgsz 416 --device cpu
 ```
@@ -147,24 +213,24 @@ python src/training/train.py --epochs 50 --batch 8 --imgsz 416 --device cpu
 
 ```bash
 make export
-# Saves: runs/train/yolo26n_pcb/weights/best.onnx
+# Saves runs/detect/runs/train/yolo26n_pcb/weights/best.onnx
 ```
 
-### 5. Benchmark CPU latency
+### 5. Benchmark
 
 ```bash
 make benchmark
-# Compares PyTorch vs ONNX Runtime on CPU (100 runs)
+# Times PyTorch and ONNX Runtime over 100 runs and writes runs/benchmark.json
 ```
 
 ### 6. Run the web app
 
 ```bash
 make serve
-# Open http://localhost:8000
+# Then open http://localhost:8000
 ```
 
-### 7. Run tests
+### 7. Run the tests
 
 ```bash
 make test
@@ -187,7 +253,7 @@ make test
 
 ### `POST /predict`
 
-Upload a PCB image (JPEG, PNG, BMP, TIFF):
+Upload a PCB image (JPEG, PNG, BMP or TIFF):
 
 ```bash
 curl -X POST http://localhost:8000/predict \
@@ -195,6 +261,7 @@ curl -X POST http://localhost:8000/predict \
 ```
 
 Response:
+
 ```json
 {
   "filename": "pcb_sample.jpg",
@@ -214,21 +281,21 @@ Response:
   "counts_by_class": {"OP": 1, "SH": 1},
   "max_conf_by_class": {"OP": 0.87, "SH": 0.72},
   "total_defects": 2,
-  "inference_time_ms": 85.4,
+  "inference_time_ms": 62.1,
   "annotated_image_b64": "iVBORw0KGgo..."
 }
 ```
 
 ### `POST /predict/batch`
 
-Upload multiple images at once:
+Send several images in one request:
 
 ```bash
 curl -X POST http://localhost:8000/predict/batch \
   -F "files=@img1.jpg" -F "files=@img2.jpg"
 ```
 
-Returns aggregated results + saves `runs/batch_results.csv`.
+It returns combined results for all the images and saves them to `runs/batch_results.csv`.
 
 ---
 
@@ -236,11 +303,11 @@ Returns aggregated results + saves `runs/batch_results.csv`.
 
 | Condition | Status |
 |-----------|--------|
-| Any **OP** or **SH** detection above threshold | **REJECT** |
-| Other defects detected above threshold | **REVIEW** |
-| No detections above threshold | **PASS** |
+| Any **OP** or **SH** detection above the threshold | **REJECT** |
+| Any other defect above the threshold | **REVIEW** |
+| Nothing above the threshold | **PASS** |
 
-Configure critical classes and thresholds in `configs/app.yaml` or via environment variables.
+You can change the critical classes and thresholds in `configs/app.yaml` or with environment variables.
 
 ---
 
@@ -250,66 +317,56 @@ Configure critical classes and thresholds in `configs/app.yaml` or via environme
 make docker-build
 make docker-run
 
-# Or with docker compose:
+# or with docker compose
 docker compose up -d
 ```
 
-The container expects model weights mounted at `./runs/` (see `docker-compose.yml`).
+The container expects the trained weights to be mounted under `./runs/` (see `docker-compose.yml`).
 
 ---
 
-## Oracle Cloud deployment
+## Deploying to Oracle Cloud
 
-See [`deploy/oracle/README.md`](deploy/oracle/README.md) for the full step-by-step guide.
+The full walkthrough is in [`deploy/oracle/README.md`](deploy/oracle/README.md). In short:
 
-**Summary:**
-1. Provision an A1.Flex VM (2 OCPU, 12 GB RAM) — Always Free
-2. Run `install_vm.sh` to bootstrap Docker
-3. Copy your trained `best.onnx` to the VM
-4. `docker compose up -d`
-5. Open port 8000 in the security list
+1. Create an A1.Flex VM (2 OCPU, 12 GB RAM) on the Always Free tier.
+2. Run `install_vm.sh` to set up Docker.
+3. Copy your trained `best.onnx` to the VM.
+4. Run `docker compose up -d`.
+5. Open port 8000 in the security list.
 
 ---
 
 ## Environment variables
 
-Copy `.env.example` to `.env` and adjust:
+Copy `.env.example` to `.env` and change what you need:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ONNX_MODEL_PATH` | `runs/train/yolo26n_pcb/weights/best.onnx` | Production model |
-| `PT_MODEL_PATH` | `runs/train/yolo26n_pcb/weights/best.pt` | PyTorch fallback |
-| `CONF_THRESHOLD` | `0.25` | Detection confidence cutoff |
+| `ONNX_MODEL_PATH` | `runs/detect/runs/train/yolo26n_pcb/weights/best.onnx` | Main model |
+| `PT_MODEL_PATH` | `runs/detect/runs/train/yolo26n_pcb/weights/best.pt` | PyTorch backup |
+| `CONF_THRESHOLD` | `0.25` | Minimum detection confidence |
 | `IOU_THRESHOLD` | `0.45` | NMS IoU threshold |
 | `IMGSZ` | `640` | Inference image size |
 | `CRITICAL_CLASSES` | `OP,SH` | Classes that trigger REJECT |
 
 ---
 
-## Limitations
+## What's next
 
-- **Cropped images**: DsPCBSD+ uses cropped local defect patches, not whole-board photos. Full-board generalisation requires additional fine-tuning.
-- **9 defect classes**: Coverage is limited to the classes present in the dataset.
-- **CPU inference**: Latency on a single-core CPU may be 500–1500 ms per image at 640px.
-- **No temporal tracking**: Each image is inspected independently; no board-level session state.
-
----
-
-## Future improvements
-
-- Fine-tune on full-board images for production lines
-- TensorRT / OpenVINO export path for faster edge inference
-- Image history / inspection log UI
-- GitHub Actions CI for lint + test
-- Confidence calibration using temperature scaling
+- Fine-tune on full-board images from a production line
+- Add TensorRT and OpenVINO exports for even faster edge inference
+- Add an inspection history page to the UI
+- Set up GitHub Actions for linting and tests
+- Calibrate confidence scores with temperature scaling
 
 ---
 
 ## Licensing
 
-- **Dataset (DsPCBSD+)**: CC BY 4.0 — cite the [Scientific Data paper](https://www.nature.com/articles/s41597-024-03656-8)
-- **YOLO26 / Ultralytics**: AGPL-3.0 — see [Ultralytics licensing](https://www.ultralytics.com/license)
-- **This project**: MIT (see LICENSE_NOTES.md)
+- **Dataset (DsPCBSD+)**: CC BY 4.0. Please cite the [Scientific Data paper](https://www.nature.com/articles/s41597-024-03656-8).
+- **YOLO26 / Ultralytics**: AGPL-3.0. See [Ultralytics licensing](https://www.ultralytics.com/license).
+- **This project**: MIT. See [LICENSE_NOTES.md](LICENSE_NOTES.md).
 
 ---
 
